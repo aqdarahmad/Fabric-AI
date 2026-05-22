@@ -1,17 +1,19 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'dart:convert'; // أضف هذا السطر هنا
 
-// 🟢 المكتبة السحرية الجديدة (تعمل بدون إنترنت)
-import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
+// استيراد الموديلات، القطع البرمجية، والخدمة
+import 'models/fabric_item.dart';
+import 'widgets/scan_mode_selector.dart';
+import 'widgets/fabric_image_preview.dart';
+import 'widgets/fabric_items_list.dart';
+import '../services/fabric_api_service.dart'; // استدعاء ملف الخدمة الجديد
 
-// 🟢 تحديد وضع الفحص
 enum ScanMode { defect, fabricType }
 
 class ResultPage extends StatefulWidget {
@@ -127,148 +129,64 @@ class _ResultPageState extends State<ResultPage> {
         _isMistakeReported = false;
       });
 
-      // =========================================================
-      // 🟢 وضع "كشف العيوب" (Roboflow)
-      // =========================================================
+      List<int> imageBytes = await _selectedImage!.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+
+      // الاستدعاء الآن أصبح بسيطاً وموجهاً لملف الخدمة المستقل
       if (_currentMode == ScanMode.defect) {
-        List<int> imageBytes = await _selectedImage!.readAsBytes();
-        String base64Image = base64Encode(imageBytes);
-
-        String apiKey = "23FkvKnUQBHppJDcPvVF";
-        String modelName = "garment-defects-o1agi";
-        String version = "1";
-
-        int userConfidence = Hive.box(
+        double userConfidence = Hive.box(
           'fabricBox',
-        ).get('aiConfidence', defaultValue: 35.0).toInt();
+        ).get('aiConfidence', defaultValue: 35.0);
 
-        String url =
-            "https://detect.roboflow.com/$modelName/$version?api_key=$apiKey&confidence=$userConfidence";
-
-        var response = await http
-            .post(
-              Uri.parse(url),
-              headers: {"Content-Type": "application/x-www-form-urlencoded"},
-              body: base64Image,
-            )
-            .timeout(const Duration(seconds: 25));
-
-        if (response.statusCode == 200) {
-          var jsonResponse = jsonDecode(response.body);
-
-          if (jsonResponse['image'] != null) {
-            imgWidth = jsonResponse['image']['width']?.toDouble();
-            imgHeight = jsonResponse['image']['height']?.toDouble();
-          }
-
-          List predictions = jsonResponse['predictions'] ?? [];
-
-          setState(() {
-            predictionsList = predictions;
-            List<Map<String, dynamic>> detailedDefects = [];
-
-            if (predictions.isNotEmpty) {
-              HapticFeedback.heavyImpact();
-              List<String> defectNames = [];
-
-              for (var pred in predictions) {
-                String defName = pred['class'].toString().toUpperCase();
-                double conf = pred['confidence'] as double;
-
-                defectNames.add(defName);
-                fabricItems.add(
-                  FabricItem(name: defName, confidence: conf, isDefect: true),
-                );
-                detailedDefects.add({'name': defName, 'confidence': conf});
-              }
-
-              finalResultToReturn = {
-                'isDefective': true,
-                'image': _selectedImage,
-                'defects': defectNames.toSet().toList().join(', '),
-                'detailedDefects': detailedDefects,
-                'time': DateTime.now(),
-                'isMistake': false,
-                'mistakeNote': '',
-              };
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '⚠️ Alert: Detected defects (${defectNames.toSet().toList().join(', ')})',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  backgroundColor: Colors.redAccent,
-                  duration: const Duration(seconds: 4),
-                ),
-              );
-            } else {
-              _setPerfectFabric();
-            }
-          });
-        } else {
-          throw Exception('Roboflow Server Error: ${response.statusCode}');
-        }
-      }
-      // =========================================================
-      // 🔵 وضع "نوع القماش" (Google ML Kit Offline) - مجاني وسريع جداً ومضمون
-      // =========================================================
-      else {
-        // 1. تحويل الصورة لصيغة يقبلها ML Kit
-        final inputImage = InputImage.fromFile(_selectedImage!);
-
-        // 2. تجهيز الموديل
-        final imageLabeler = ImageLabeler(options: ImageLabelerOptions());
-
-        // 3. تحليل الصورة في جزء من الثانية (بدون إنترنت!)
-        final List<ImageLabel> labels = await imageLabeler.processImage(
-          inputImage,
+        final result = await FabricApiService.runDefectDetection(
+          base64Image: base64Image,
+          confidenceThreshold: userConfidence,
         );
 
-        // 4. إغلاق الموديل لتوفير الذاكرة
-        imageLabeler.close();
+        setState(() {
+          imgWidth = result['imgWidth'];
+          imgHeight = result['imgHeight'];
+          predictionsList = result['predictions'];
+          fabricItems = List<FabricItem>.from(result['fabricItems']);
 
-        // 5. فلترة النتائج للبحث عن الكلمات المتعلقة بالأقمشة
-        List<String> fabricKeywords = [
-          'textile',
-          'fabric',
-          'cotton',
-          'denim',
-          'jeans',
-          'silk',
-          'wool',
-          'linen',
-          'leather',
-          'clothing',
-          'pattern',
-          'knit',
-          'woven',
-        ];
+          if (predictionsList.isNotEmpty) {
+            HapticFeedback.heavyImpact();
+            finalResultToReturn = {
+              'isDefective': true,
+              'image': _selectedImage,
+              'defects': result['defectNames'].toSet().toList().join(', '),
+              'detailedDefects': result['detailedDefects'],
+              'time': DateTime.now(),
+              'isMistake': false,
+              'mistakeNote': '',
+            };
 
-        String bestMatch = "UNKNOWN FABRIC";
-        double accuracy = 0.0;
-
-        for (ImageLabel label in labels) {
-          String name = label.label.toLowerCase();
-          if (fabricKeywords.any((keyword) => name.contains(keyword))) {
-            bestMatch = name.toUpperCase();
-            accuracy = label.confidence;
-            break; // نأخذ أول نتيجة صحيحة لأن القائمة مرتبة حسب الدقة
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '⚠️ Alert: Detected defects (${result['defectNames'].toSet().toList().join(', ')})',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: Colors.redAccent,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          } else {
+            _setPerfectFabric();
           }
-        }
-
-        // إذا لم يجد كلمة دقيقة، نأخذ أعلى نتيجة وجدها الموديل في الصورة
-        if (bestMatch == "UNKNOWN FABRIC" && labels.isNotEmpty) {
-          bestMatch = labels.first.label.toUpperCase();
-          accuracy = labels.first.confidence;
-        }
+        });
+      } else {
+        // فحص نوع القماش عن طريق خدمة Gemini
+        final bestMatch = await FabricApiService.runFabricTypeDetection(
+          base64Image: base64Image,
+        );
 
         HapticFeedback.lightImpact();
         setState(() {
           fabricItems.add(
             FabricItem(
               name: "MATERIAL: $bestMatch",
-              confidence: accuracy,
+              confidence: 0.99,
               isDefect: false,
             ),
           );
@@ -278,7 +196,10 @@ class _ResultPageState extends State<ResultPage> {
             'image': _selectedImage,
             'defects': "Type: $bestMatch",
             'detailedDefects': [
-              {'name': 'Identified as $bestMatch', 'confidence': accuracy},
+              {
+                'name': 'Identified by Gemini as $bestMatch',
+                'confidence': 0.99,
+              },
             ],
             'time': DateTime.now(),
             'isMistake': false,
@@ -301,9 +222,9 @@ class _ResultPageState extends State<ResultPage> {
       print("SCAN ERROR: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text('$e'),
           backgroundColor: Colors.red,
-          duration: const Duration(seconds: 6),
+          duration: const Duration(seconds: 10),
         ),
       );
     } finally {
@@ -415,120 +336,6 @@ class _ResultPageState extends State<ResultPage> {
     );
   }
 
-  Widget _buildImageWithBoundingBoxes() {
-    if (_selectedImage == null) return const SizedBox();
-
-    if (!_showBoundingBoxes ||
-        predictionsList.isEmpty ||
-        imgWidth == null ||
-        imgHeight == null ||
-        _currentMode == ScanMode.fabricType) {
-      return Container(
-        constraints: const BoxConstraints(maxHeight: 350),
-        width: double.infinity,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.file(_selectedImage!, fit: BoxFit.contain),
-        ),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double maxWidth = constraints.maxWidth;
-        double maxHeight = 350;
-
-        double imgRatio = imgWidth! / imgHeight!;
-        double containerRatio = maxWidth / maxHeight;
-
-        double displayWidth, displayHeight;
-
-        if (imgRatio > containerRatio) {
-          displayWidth = maxWidth;
-          displayHeight = maxWidth / imgRatio;
-        } else {
-          displayHeight = maxHeight;
-          displayWidth = maxHeight * imgRatio;
-        }
-
-        double scaleX = displayWidth / imgWidth!;
-        double scaleY = displayHeight / imgHeight!;
-
-        List<Widget> boxes = predictionsList.map((pred) {
-          double x = pred['x'].toDouble();
-          double y = pred['y'].toDouble();
-          double w = pred['width'].toDouble();
-          double h = pred['height'].toDouble();
-
-          double left = (x - w / 2) * scaleX;
-          double top = (y - h / 2) * scaleY;
-
-          return Positioned(
-            left: left,
-            top: top,
-            width: w * scaleX,
-            height: h * scaleY,
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.redAccent, width: 2.5),
-                borderRadius: BorderRadius.circular(4),
-                color: Colors.redAccent.withOpacity(0.25),
-              ),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(2),
-                      bottomRight: Radius.circular(4),
-                    ),
-                  ),
-                  child: Text(
-                    '${pred['class']} ${(pred['confidence'] * 100).toInt()}%',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList();
-
-        return Container(
-          constraints: const BoxConstraints(maxHeight: 350),
-          width: double.infinity,
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: displayWidth,
-            height: displayHeight,
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.file(
-                    _selectedImage!,
-                    width: displayWidth,
-                    height: displayHeight,
-                    fit: BoxFit.fill,
-                  ),
-                ),
-                ...boxes,
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _returnWithData() {
     if (finalResultToReturn != null) {
       finalResultToReturn!['fabricName'] = _nameController.text.isNotEmpty
@@ -557,114 +364,13 @@ class _ResultPageState extends State<ResultPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 🟢 الأزرار لاختيار وضع الفحص
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (!isLoading)
-                          setState(() => _currentMode = ScanMode.defect);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _currentMode == ScanMode.defect
-                              ? Colors.white
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: _currentMode == ScanMode.defect
-                              ? [
-                                  const BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 4,
-                                  ),
-                                ]
-                              : [],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.search,
-                              size: 18,
-                              color: _currentMode == ScanMode.defect
-                                  ? const Color(0xFFE91E63)
-                                  : Colors.grey[600],
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Detect Defects',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _currentMode == ScanMode.defect
-                                    ? const Color(0xFFE91E63)
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        if (!isLoading)
-                          setState(() => _currentMode = ScanMode.fabricType);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _currentMode == ScanMode.fabricType
-                              ? Colors.white
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: _currentMode == ScanMode.fabricType
-                              ? [
-                                  const BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 4,
-                                  ),
-                                ]
-                              : [],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.category,
-                              size: 18,
-                              color: _currentMode == ScanMode.fabricType
-                                  ? Colors.blue
-                                  : Colors.grey[600],
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Fabric Type',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _currentMode == ScanMode.fabricType
-                                    ? Colors.blue
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            ScanModeSelector(
+              currentMode: _currentMode,
+              isLoading: isLoading,
+              onModeChanged: (newMode) {
+                setState(() => _currentMode = newMode);
+              },
             ),
-
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(20),
@@ -691,13 +397,18 @@ class _ResultPageState extends State<ResultPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  _buildImageWithBoundingBoxes(),
+                  FabricImagePreview(
+                    selectedImage: _selectedImage,
+                    showBoundingBoxes: _showBoundingBoxes,
+                    predictionsList: predictionsList,
+                    imgWidth: imgWidth,
+                    imgHeight: imgHeight,
+                    currentMode: _currentMode,
+                  ),
                   const SizedBox(height: 16),
-
                   if (finalResultToReturn != null &&
                       predictionsList.isNotEmpty &&
-                      _currentMode == ScanMode.defect)
+                      _currentMode == ScanMode.defect) ...[
                     Center(
                       child: OutlinedButton.icon(
                         onPressed: () => setState(
@@ -723,12 +434,8 @@ class _ResultPageState extends State<ResultPage> {
                         ),
                       ),
                     ),
-
-                  if (finalResultToReturn != null &&
-                      predictionsList.isNotEmpty &&
-                      _currentMode == ScanMode.defect)
                     const SizedBox(height: 16),
-
+                  ],
                   if (finalResultToReturn != null) ...[
                     TextField(
                       controller: _nameController,
@@ -752,7 +459,6 @@ class _ResultPageState extends State<ResultPage> {
                     ),
                     const SizedBox(height: 16),
                   ],
-
                   Row(
                     children: [
                       Expanded(
@@ -817,7 +523,6 @@ class _ResultPageState extends State<ResultPage> {
                       ],
                     ],
                   ),
-
                   if (finalResultToReturn != null &&
                       !_isMistakeReported &&
                       _currentMode == ScanMode.defect) ...[
@@ -853,66 +558,14 @@ class _ResultPageState extends State<ResultPage> {
                 ],
               ),
             ),
-
-            if (fabricItems.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Center(
-                  child: Text(
-                    "No scan results yet.\nPlease add an image.",
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                itemCount: fabricItems.length,
-                itemBuilder: (context, index) {
-                  var item = fabricItems[index];
-                  Color iconColor = _currentMode == ScanMode.fabricType
-                      ? Colors.blue
-                      : (item.isDefect ? Colors.red : Colors.green);
-                  IconData iconType = _currentMode == ScanMode.fabricType
-                      ? Icons.info
-                      : (item.isDefect ? Icons.warning : Icons.check_circle);
-
-                  return Card(
-                    child: ListTile(
-                      leading: Icon(iconType, color: iconColor),
-                      title: Text(
-                        item.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        _currentMode == ScanMode.fabricType
-                            ? 'AI Analysis'
-                            : 'Confidence: ${(item.confidence * 100).toInt()}%',
-                      ),
-                    ),
-                  );
-                },
-              ),
+            FabricItemsList(
+              fabricItems: fabricItems,
+              currentMode: _currentMode,
+            ),
             const SizedBox(height: 30),
           ],
         ),
       ),
     );
   }
-}
-
-class FabricItem {
-  final String name;
-  final double confidence;
-  final bool isDefect;
-  FabricItem({
-    required this.name,
-    required this.confidence,
-    required this.isDefect,
-  });
 }
