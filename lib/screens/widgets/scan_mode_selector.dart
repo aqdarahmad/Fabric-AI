@@ -24,6 +24,7 @@ class ScanModeSelector extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // 1. وضع كشف العيوب (Defects)
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -45,15 +46,16 @@ class ScanModeSelector extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.search,
-                      size: 18,
+                      size: 16,
                       color: currentMode == ScanMode.defect
                           ? const Color(0xFFE91E63)
                           : Colors.grey[600],
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Text(
-                      'Detect Defects',
+                      'Defects',
                       style: TextStyle(
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: currentMode == ScanMode.defect
                             ? const Color(0xFFE91E63)
@@ -65,6 +67,8 @@ class ScanModeSelector extends StatelessWidget {
               ),
             ),
           ),
+
+          // 2. وضع تحديد نوع القماش (Fabric Type)
           Expanded(
             child: GestureDetector(
               onTap: () {
@@ -86,18 +90,64 @@ class ScanModeSelector extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.category,
-                      size: 18,
+                      size: 16,
                       color: currentMode == ScanMode.fabricType
                           ? Colors.blue
                           : Colors.grey[600],
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     Text(
-                      'Fabric Type',
+                      'Type',
                       style: TextStyle(
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: currentMode == ScanMode.fabricType
                             ? Colors.blue
+                            : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 3. وضع فحص الجودة والأصالة الجديد (Quality Check)
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                if (!isLoading) onModeChanged(ScanMode.authenticity);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: currentMode == ScanMode.authenticity
+                      ? Colors.white
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: currentMode == ScanMode.authenticity
+                      ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
+                      : [],
+                ),
+                child: Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center, // تم تصحيح الخطأ الإملائي هنا
+                  children: [
+                    Icon(
+                      Icons.verified,
+                      size: 16,
+                      color: currentMode == ScanMode.authenticity
+                          ? Colors.green
+                          : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Quality',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: currentMode == ScanMode.authenticity
+                            ? Colors.green
                             : Colors.grey[600],
                       ),
                     ),

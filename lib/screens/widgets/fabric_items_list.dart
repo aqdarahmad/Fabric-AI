@@ -33,12 +33,27 @@ class FabricItemsList extends StatelessWidget {
       itemCount: fabricItems.length,
       itemBuilder: (context, index) {
         var item = fabricItems[index];
-        Color iconColor = currentMode == ScanMode.fabricType
-            ? Colors.blue
-            : (item.isDefect ? Colors.red : Colors.green);
-        IconData iconType = currentMode == ScanMode.fabricType
-            ? Icons.info
-            : (item.isDefect ? Icons.warning : Icons.check_circle);
+
+        Color iconColor;
+        IconData iconType;
+        String subtitleText;
+
+        // 1. تخصيص الألوان والأيقونات بناءً على وضع الفحص المختار
+        if (currentMode == ScanMode.fabricType) {
+          iconColor = Colors.blue;
+          iconType = Icons.info;
+          subtitleText = 'Confidence: ${(item.confidence * 100).toInt()}%';
+        } else if (currentMode == ScanMode.authenticity) {
+          // اللون الأخضر للأصلي عالي الجودة، والبرتقالي للرديء والمقلد
+          iconColor = item.isDefect ? Colors.orange : Colors.green;
+          iconType = item.isDefect ? Icons.gpp_bad : Icons.verified_user;
+          subtitleText = 'Fabric Quality Assessment';
+        } else {
+          // وضع كشف العيوب (الوردي)
+          iconColor = item.isDefect ? Colors.red : Colors.green;
+          iconType = item.isDefect ? Icons.warning : Icons.check_circle;
+          subtitleText = 'Confidence: ${(item.confidence * 100).toInt()}%';
+        }
 
         return Card(
           child: ListTile(
@@ -47,7 +62,7 @@ class FabricItemsList extends StatelessWidget {
               item.name,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            subtitle: Text('Confidence: ${(item.confidence * 100).toInt()}%'),
+            subtitle: Text(subtitleText),
           ),
         );
       },

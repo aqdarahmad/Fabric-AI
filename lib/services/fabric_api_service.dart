@@ -1,15 +1,15 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../screens/models/fabric_item.dart'; // مسار الاستيراد للموديل
+import '../screens/models/fabric_item.dart';
 
 class FabricApiService {
-  // 1. وظيفة فحص العيوب (Roboflow)
+  static const String _openaiApiKey = "";
   static Future<Map<String, dynamic>> runDefectDetection({
     required String base64Image,
     required double confidenceThreshold,
   }) async {
-    String apiKey = "udRjLbfGnQ8wnXINPPCB";
-    String modelName = "garment-defects-o1agi";
+    String apiKey = "";
+    String modelName = "fabric-defect-detection-lbvbi-1kwag";
     String version = "1";
 
     String url =
@@ -40,7 +40,7 @@ class FabricApiService {
 
       for (var pred in predictions) {
         String defName = pred['class'].toString().toUpperCase();
-        double conf = pred['confidence'] as double;
+        double conf = (pred['confidence'] as num).toDouble();
 
         defectNames.add(defName);
         fabricItems.add(
@@ -54,80 +54,140 @@ class FabricApiService {
         'fabricItems': fabricItems,
         'defectNames': defectNames,
         'detailedDefects': detailedDefects,
-        'imgWidth': imgWidth,
-        'imgHeight': imgHeight,
+        'imgWidth': imgWidth ?? 768.0,
+        'imgHeight': imgHeight ?? 512.0,
+        'rawResponseBody': response.body,
       };
     } else {
-      throw Exception('Roboflow Server Error: ${response.statusCode}');
+      throw Exception(
+        'Roboflow API Error: ${response.statusCode}\n${response.body}',
+      );
     }
   }
 
-  // 2. وظيفة فحص نوع القماش (Gemini)
   static Future<String> runFabricTypeDetection({
     required String base64Image,
   }) async {
-    String geminiApiKey = "AIzaSyAt8Bq3J0X3sLJY_WepKknypAS1Kbi8xfQ";
-
-    if (geminiApiKey == "AIzaSyAt8Bq3J0X3sLJY_WepKknypAS1Kbi8xfQ" ||
-        geminiApiKey == "AIzaSyAn7BDCUQJvmi4F7FLBhvl8aLQBmoyhYvo") {
+    if (_openaiApiKey.isEmpty || _openaiApiKey.startsWith("ضع_هنا")) {
       throw Exception(
-        "لم يتم تغيير مفتاح الـ API. يرجى إنشاء مفتاح خاص بك من موقع Google AI Studio ووضعه في الكود لكي يعمل الفحص بنجاح.",
+        "لم يتم إدخال مفتاح الـ API الخاص بـ OpenAI في ملف الخدمة.",
       );
     }
 
-    String url =
-        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$geminiApiKey";
-
-    String prompt =
-        "Analyze this image and identify the fabric type. Choose ONLY ONE from this list: Cotton, Polyester, Silk, Wool, Linen, Denim, Leather, Knitwear. Return ONLY the fabric name without any extra text or punctuation.";
+    String url = "https://api.openai.com/v1/chat/completions";
 
     var response = await http
         .post(
           Uri.parse(url),
-          headers: {"Content-Type": "application/json"},
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $_openaiApiKey",
+          },
           body: jsonEncode({
-            "contents": [
+            "model": "gpt-4o-mini",
+            "messages": [
               {
-                "parts": [
-                  {"text": prompt},
+                "role": "user",
+                "content": [
                   {
-                    "inlineData": {
-                      "mimeType": "image/jpeg",
-                      "data": base64Image,
-                    },
+                    "type": "text",
+                    "text":
+                        "Analyze this image and identify the fabric type. Choose ONLY ONE from this list: Cotton, Polyester, Silk, Wool, Linen, Denim, Leather, Knitwear. Return ONLY the fabric name without any extra text or punctuation.",
+                  },
+                  {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/jpeg;base64,$base64Image"},
                   },
                 ],
               },
             ],
-            "generationConfig": {"temperature": 0.2},
+            "max_tokens": 15,
+            "temperature": 0.2,
           }),
         )
         .timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200) {
       var jsonResponse = jsonDecode(response.body);
-
       try {
-        String bestMatch =
-            jsonResponse['candidates'][0]['content']['parts'][0]['text']
-                .toString()
-                .trim()
-                .toUpperCase();
+        String bestMatch = jsonResponse['choices'][0]['message']['content']
+            .toString()
+            .trim()
+            .toUpperCase();
         return bestMatch;
       } catch (e) {
-        throw Exception('Failed to parse Gemini response.');
+        throw Exception('Failed to parse OpenAI response.');
       }
     } else {
-      String detailedError = response.body;
-      try {
-        var decodedError = jsonDecode(response.body);
-        if (decodedError['error'] != null &&
-            decodedError['error']['message'] != null) {
-          detailedError = decodedError['error']['message'];
-        }
-      } catch (_) {}
+      throw Exception('OpenAI Error: ${response.statusCode}');
+    }
+  }
 
-      throw Exception('Gemini Error (${response.statusCode}): $detailedError');
+  // 3. وظيفة فحص "أصالة وجودة القماش" المبتكرة والمصممة لمشروع التخرج
+  static Future<Map<String, String>> runFabricAuthenticityCheck({
+    required String base64Image,
+  }) async {
+    // شرط فحص ذكي لمنع حدوث تعليق أو أخطاء مع مفتاحك الفعلي
+    if (_openaiApiKey.isEmpty || _openaiApiKey.startsWith("ضع_هنا")) {
+      throw Exception(
+        "لم يتم إدخال مفتاح الـ API الخاص بـ OpenAI في ملف الخدمة.",
+      );
+    }
+
+    String url = "https://api.openai.com/v1/chat/completions";
+
+    // طلب تحليل دقيق لجودة حبكة النسيج وإرجاع النتيجة كـ JSON
+    var response = await http
+        .post(
+          Uri.parse(url),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $_openaiApiKey",
+          },
+          body: jsonEncode({
+            "model": "gpt-4o-mini",
+            "response_format": {
+              "type": "json_object",
+            }, // تفعيل نظام الـ JSON الصارم من OpenAI
+            "messages": [
+              {
+                "role": "user",
+                "content": [
+                  {
+                    "type": "text",
+                    "text":
+                        "You are an expert textile inspector. Analyze this close-up image of a fabric to determine if it is of high-quality/authentic origin (GENUINE / HIGH QUALITY) or a cheap/fake imitation (LOW QUALITY / COUNTERFEIT). Analyze the weave density, stitch consistency, thread quality, and texture. Your response must be in JSON format with exactly two keys: 'verdict' (either 'GENUINE / HIGH QUALITY' or 'LOW QUALITY / COUNTERFEIT') and 'explanation' (A concise, 2-line explanation in Arabic explaining your visual reasoning about why it is high or low quality).",
+                  },
+                  {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/jpeg;base64,$base64Image"},
+                  },
+                ],
+              },
+            ],
+            "max_tokens": 150,
+            "temperature": 0.3,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    if (response.statusCode == 200) {
+      var jsonResponse = jsonDecode(response.body);
+      try {
+        // فك تشفير نص الـ JSON الراجع من ChatGPT
+        String rawContent = jsonResponse['choices'][0]['message']['content'];
+        Map<String, dynamic> parsedJson = jsonDecode(rawContent);
+
+        return {
+          "verdict": parsedJson['verdict']?.toString() ?? "UNKNOWN",
+          "explanation":
+              parsedJson['explanation']?.toString() ?? "لا توجد تفاصيل متوفرة.",
+        };
+      } catch (e) {
+        throw Exception('Failed to parse Authenticity JSON.');
+      }
+    } else {
+      throw Exception('OpenAI Authenticity Error: ${response.statusCode}');
     }
   }
 }
