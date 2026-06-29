@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
+
+import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart'; // 🔴 أضفنا استدعاء مكتبة Hive هنا
 
 import 'screens/signup_screen.dart';
@@ -10,9 +16,13 @@ import 'screens/create_profile.dart';
 import 'screens/settings_page.dart';
 import 'home.dart';
 
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+   await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   // 🔴 هذان السطران هما الحل السحري للشاشة الرمادية
   await Hive.initFlutter();
   await Hive.openBox('fabricBox'); // نفتح الصندوق قبل تشغيل التطبيق

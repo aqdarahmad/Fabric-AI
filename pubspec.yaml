@@ -52,6 +52,9 @@ dependencies:
   share_plus: ^10.0.0
   google_generative_ai: ^0.4.7
   google_mlkit_image_labeling: ^0.14.2
+  firebase_core: ^3.4.0
+  cloud_firestore: ^5.4.0
+  firebase_auth: ^5.2.0
 
 dev_dependencies:
   flutter_test:
