@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,14 +42,33 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _auth.signInWithEmailAndPassword(
+      // 1. تسجيل الدخول
+      UserCredential userCredential =
+          await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
+      // 2. جلب بيانات المستخدم من Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        throw Exception("User data not found in Firestore");
+      }
+
+      String role = userDoc['role'];
+
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/home');
+      // 3. التوجيه حسب role
+      if (role == 'admin') {
+        Navigator.pushReplacementNamed(context, '/adminHome');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     } on FirebaseAuthException catch (e) {
       String message = "Login failed";
 
@@ -91,9 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Enter your email first."),
-        ),
+        const SnackBar(content: Text("Enter your email first.")),
       );
       return;
     }

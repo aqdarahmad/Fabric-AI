@@ -14,6 +14,7 @@ import 'screens/result_page.dart';
 import 'screens/fabric_view_page.dart';
 import 'screens/create_profile.dart';
 import 'screens/settings_page.dart';
+import 'screens/admin_home.dart';
 import 'home.dart';
 
 
@@ -66,6 +67,7 @@ class MyApp extends StatelessWidget {
 
         '/profile': (context) => const CreateProfileScreen(),
         '/settings': (context) => const SettingsPage(),
+         '/adminHome': (context) => const AdminHome(),
       },
     );
   }

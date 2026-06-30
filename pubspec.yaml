@@ -35,13 +35,13 @@ dependencies:
 
   http: ^1.2.0
  
-  web_socket_channel: ^2.4.0
+  web_socket_channel: ^3.0.3
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.1
-  image_cropper: ^7.1.0
-  camera: ^0.10.5+5           # 👈 تم إضافة مكتبة الكاميرا الحية هنا بنجاح
+  image_cropper: ^12.2.1
+  camera: ^0.12.0+1           # 👈 تم إضافة مكتبة الكاميرا الحية هنا بنجاح
   shared_preferences: ^2.2.2  # لحفظ الأرقام والبيانات
   path_provider: ^2.1.2       # لحفظ مسار الصور بشكل دائم 
   pdf: ^3.12.0
@@ -49,12 +49,12 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0  
   fl_chart: ^1.2.0
-  share_plus: ^10.0.0
+  share_plus: ^13.2.0
   google_generative_ai: ^0.4.7
   google_mlkit_image_labeling: ^0.14.2
-  firebase_core: ^3.4.0
-  cloud_firestore: ^5.4.0
-  firebase_auth: ^5.2.0
+  firebase_core: ^4.11.0
+  cloud_firestore: ^6.6.0
+  firebase_auth: ^6.5.4
 
 dev_dependencies:
   flutter_test:

@@ -20,7 +20,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   @override
   void initState() {
     super.initState();
-
     _nameController.text = user?.displayName ?? '';
     _emailController.text = user?.email ?? '';
   }
@@ -34,39 +33,10 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     super.dispose();
   }
 
-  void _logout() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-
-                if (!mounted) return;
-
-                Navigator.pop(context);
-                Navigator.pushReplacementNamed(context, '/login');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
+  void _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   void _saveProfile() async {
@@ -75,7 +45,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Profile updated successfully!'),
+          content: Text('Profile updated successfully'),
           backgroundColor: Colors.green,
         ),
       );
@@ -88,29 +58,58 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     }
   }
 
+  Widget _card(Widget child) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required String hint,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
+
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Profile',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text("Profile"),
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_rounded, color: Colors.black87),
+            icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const SettingsPage(),
+                  builder: (_) => const SettingsPage(),
                 ),
               );
             },
@@ -121,96 +120,61 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 30),
-              color: Colors.white,
-              child: Column(
+
+            const SizedBox(height: 20),
+
+            _card(
+              Column(
                 children: [
-                  Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFE91E63).withOpacity(0.1),
-                      border: Border.all(
-                        color: const Color(0xFFE91E63),
-                        width: 3,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 55,
-                      color: Color(0xFFE91E63),
-                    ),
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: const Color(0xFFE91E63).withOpacity(0.1),
+                    child: const Icon(Icons.person, size: 50),
                   ),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: 10),
 
                   Text(
-                    user?.displayName ?? 'User',
+                    user?.displayName ?? "User",
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
 
-                  const SizedBox(height: 4),
-
-                  Text(
-                    user?.email ?? '',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
+                  Text(user?.email ?? ""),
                 ],
               ),
             ),
 
             const SizedBox(height: 20),
 
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            _card(
+              Column(
                 children: [
-                  const Text(
-                    'Personal Information',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  _buildTextField(
+                  _field(
                     controller: _nameController,
-                    label: 'Full Name',
+                    label: "Full Name",
                     icon: Icons.person,
-                    hint: 'Enter your name',
+                    hint: "Enter your name",
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  _buildTextField(
+                  _field(
                     controller: _emailController,
-                    label: 'Email',
+                    label: "Email",
                     icon: Icons.email,
-                    hint: 'Enter your email',
+                    hint: "Enter email",
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  _buildTextField(
+                  _field(
                     controller: _phoneController,
-                    label: 'Phone Number',
+                    label: "Phone",
                     icon: Icons.phone,
-                    hint: 'Enter your phone',
+                    hint: "Enter phone",
                   ),
                 ],
               ),
@@ -220,31 +184,30 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: _saveProfile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE91E63),
+              child: Column(
+                children: [
+
+                  ElevatedButton(
+                    onPressed: _saveProfile,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE91E63),
+                      minimumSize: const Size(double.infinity, 55),
+                    ),
+                    child: const Text("Save Changes"),
                   ),
-                  child: const Text('Save Changes'),
-                ),
-              ),
-            ),
 
-            const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: OutlinedButton(
-                onPressed: _logout,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                  minimumSize: const Size(double.infinity, 55),
-                ),
-                child: const Text('Logout'),
+                  OutlinedButton(
+                    onPressed: _logout,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      minimumSize: const Size(double.infinity, 55),
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                    child: const Text("Logout"),
+                  ),
+                ],
               ),
             ),
 
@@ -252,34 +215,6 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    required String hint,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon),
-            hintText: hint,
-            filled: true,
-            fillColor: Colors.grey[100],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

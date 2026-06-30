@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -43,20 +44,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _isLoading = true;
     });
 
-    try {
+ try {
+  UserCredential userCredential =
       await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+    email: email,
+    password: password,
+  );
 
-      if (!mounted) return;
+  // 🔥 تأكد إن الصفحة ما انقفلت
+  if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully!')),
-      );
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userCredential.user!.uid)
+      .set({
+    'email': email,
+    'role': 'worker', // default role
+  });
 
-      Navigator.pushReplacementNamed(context, '/home');
-    } on FirebaseAuthException catch (e) {
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Account created successfully!')),
+  );
+
+  Navigator.pushReplacementNamed(context, '/home');
+}
+    on FirebaseAuthException catch (e) {
       String message = "Sign up failed";
 
       switch (e.code) {
