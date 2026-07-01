@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
-
 import 'firebase_options.dart';
-
-import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart'; // 🔴 أضفنا استدعاء مكتبة Hive هنا
-
 import 'screens/signup_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard.dart';
@@ -14,7 +9,6 @@ import 'screens/result_page.dart';
 import 'screens/fabric_view_page.dart';
 import 'screens/create_profile.dart';
 import 'screens/settings_page.dart';
-import 'screens/admin_home.dart';
 import 'home.dart';
 
 
@@ -67,7 +61,7 @@ class MyApp extends StatelessWidget {
 
         '/profile': (context) => const CreateProfileScreen(),
         '/settings': (context) => const SettingsPage(),
-         '/adminHome': (context) => const AdminHome(),
+         
       },
     );
   }
