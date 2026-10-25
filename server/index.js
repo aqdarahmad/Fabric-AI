@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { authRouter, requireAuth, initAuthDb, authEnabled } from "./auth.js";
 import { FABRIC_TYPE_PROMPT, AUTHENTICITY_PROMPT } from "./prompts.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +31,7 @@ app.get("/api/health", (_req, res) =>
     ok: true,
     roboflow: Boolean(ROBOFLOW_API_KEY),
     openai: Boolean(OPENAI_API_KEY),
+    auth: authEnabled,
   }),
 );
 
@@ -41,7 +43,8 @@ const aiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests, please wait a minute." },
 });
-app.use("/api/ai", aiLimiter);
+app.use("/api/auth", authRouter);
+app.use("/api/ai", requireAuth, aiLimiter);
 
 function validImage(b64) {
   return typeof b64 === "string" && b64.length > 100 && b64.length < 11_000_000 && /^[A-Za-z0-9+/=\s]+$/.test(b64);
@@ -136,4 +139,5 @@ if (fs.existsSync(WEB_DIR)) {
   );
 }
 
+await initAuthDb().catch((e) => console.error("DB init failed:", e.message));
 app.listen(PORT, () => console.log(`Fabric-AI server on :${PORT} (web build: ${fs.existsSync(WEB_DIR)})`));

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import '../screens/models/fabric_item.dart'; // مسار الاستيراد للموديل
+import 'auth_service.dart';
 
 /// كل طلبات الذكاء الاصطناعي تمر عبر سيرفر Fabric-AI (server/index.js)
 /// حتى لا تظهر مفاتيح Roboflow و OpenAI داخل التطبيق أو المتصفح.
@@ -26,7 +27,7 @@ class FabricApiService {
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/ai/$path'),
-          headers: {'Content-Type': 'application/json'},
+          headers: AuthService.authHeaders,
           body: jsonEncode(body),
         )
         .timeout(timeout);

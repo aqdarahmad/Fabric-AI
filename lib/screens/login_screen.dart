@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 🟢 استدعاء مكتبة الفايربيس
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,8 +14,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false; // 🟢 حالة للتحكم بمؤشر التحميل
-
-  final FirebaseAuth _auth = FirebaseAuth.instance; // 🟢 أخذ نسخة من الفايربيس
 
   @override
   void dispose() {
@@ -41,49 +39,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // 1. محاولة تسجيل الدخول
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      // 2. التحقق مما إذا كان البريد الإلكتروني مفعلاً
-      if (userCredential.user != null && !userCredential.user!.emailVerified) {
-        // إذا لم يكن مفعلاً، نقوم بتسجيل خروجه فوراً ونخبره بالسبب
-        await _auth.signOut();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Please verify your email before logging in. Check your inbox.',
-              ),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return; // إيقاف الدالة وعدم توجيهه لصفحة Home
-      }
+      await AuthService.login(email, password);
 
       // 3. إذا كان مفعلاً، يتم توجيهه لصفحة الـ Home
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'An error occurred. Please try again.';
-
-      if (e.code == 'user-not-found' ||
-          e.code == 'wrong-password' ||
-          e.code == 'invalid-credential') {
-        errorMessage = 'Invalid email or password.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'The email address is invalid.';
-      }
-
+    } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (mounted) {

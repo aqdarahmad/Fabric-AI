@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 🟢 استدعاء مكتبة الفايربيس
+import '../services/auth_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -15,61 +15,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false; // 🟢 حالة لإظهار مؤشر التحميل أثناء إنشاء الحساب
 
-  final FirebaseAuth _auth = FirebaseAuth.instance; // 🟢 أخذ نسخة من الفايربيس
-
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // 🟢 دالة عرض تنبيه احترافي للمستخدم بتفعيل الحساب
-  void _showVerificationDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // يمنع إغلاق التنبيه بالضغط خارج الصندوق
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.mark_email_unread_outlined,
-              color: Color(0xFFE91E63),
-              size: 28,
-            ),
-            SizedBox(width: 10),
-            Text(
-              'Verify Your Email',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: const Text(
-          'We have sent a verification link to your email address. Please check your inbox, verify your account, and then log in.',
-          style: TextStyle(fontSize: 15, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // إغلاق الصندوق التنبيهي
-              Navigator.pushReplacementNamed(
-                context,
-                '/login',
-              ); // التوجيه لصفحة تسجيل الدخول
-            },
-            child: const Text(
-              'Go to Login',
-              style: TextStyle(
-                color: Color(0xFFE91E63),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // 🟢 دالة التسجيل المحدثة
@@ -89,35 +39,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     try {
-      // 1. إنشاء الحساب في الفايربيس
-      UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(email: email, password: password);
-
-      // 2. إرسال بريد التحقق للمستخدم
-      await userCredential.user?.sendEmailVerification();
-
-      // 3. تسجيل الخروج فوراً لكي لا يدخل التطبيق دون تفعيل البريد
-      await _auth.signOut();
+      await AuthService.signUp(email, password);
 
       if (mounted) {
-        // 4. عرض التنبيه الاحترافي للتوجيه لصفحة الـ Login
-        _showVerificationDialog();
+        Navigator.pushReplacementNamed(context, '/home');
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'An error occurred. Please try again.';
-
-      if (e.code == 'weak-password') {
-        errorMessage = 'The password provided is too weak.';
-      } else if (e.code == 'email-already-in-use') {
-        errorMessage = 'An account already exists for that email.';
-      } else if (e.code == 'invalid-email') {
-        errorMessage = 'The email address is badly formatted.';
-      }
-
+    } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage)));
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (mounted) {

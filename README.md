@@ -5,7 +5,7 @@ Smart fabric inspection: **defect detection** (Roboflow), **fabric type analysis
 ## Architecture
 
 ```
-Browser (Flutter web)  ──►  Node server (server/index.js)  ──►  Roboflow / OpenAI
+Browser (Flutter web)  ──►  Node server (server/index.js)  ──►  Roboflow / OpenAI / Postgres (users)
                               │  serves build/web
                               └─ keeps API keys in env vars
 ```
@@ -21,9 +21,10 @@ Browser (Flutter web)  ──►  Node server (server/index.js)  ──►  Robo
 |---|---|
 | `ROBOFLOW_API_KEY` | your Roboflow key |
 | `OPENAI_API_KEY` | your OpenAI key |
-| `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_PROJECT_ID`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_STORAGE_BUCKET` | from Firebase console → Project settings → *Your apps* → **Web app** config |
+| `DATABASE_URL` | a free Postgres connection string (e.g. from [Neon](https://neon.tech)) – stores user accounts |
+| `JWT_SECRET` | *(optional)* any long random string; derived from `DATABASE_URL` if omitted |
 
-4. In Firebase console → Authentication → Settings → **Authorized domains** → add your `*.onrender.com` domain.
+Accounts (email + password, bcrypt-hashed) are handled by the Node server (`server/auth.js`); the AI endpoints require a logged-in user.
 
 The first build installs Flutter and takes several minutes.
 
@@ -31,8 +32,8 @@ The first build installs Flutter and takes several minutes.
 
 ```bash
 flutter pub get
-flutter build web --release   # add the --dart-define=FIREBASE_* values
-cd server && npm install && ROBOFLOW_API_KEY=... OPENAI_API_KEY=... node index.js
+flutter build web --release
+cd server && npm install && DATABASE_URL=... ROBOFLOW_API_KEY=... OPENAI_API_KEY=... node index.js
 ```
 
 ## Notes

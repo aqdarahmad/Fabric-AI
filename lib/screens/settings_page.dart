@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -16,8 +16,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   double _aiConfidence = 35.0;
   late Box _myBox;
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
@@ -83,7 +81,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ElevatedButton(
               onPressed: () async {
                 try {
-                  await _auth.signOut();
+                  await AuthService.logout();
                   if (context.mounted) {
                     Navigator.pop(context);
                     Navigator.pushNamedAndRemoveUntil(
@@ -116,41 +114,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _deleteAccount() async {
     try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        await user.delete();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Your account has been permanently deleted.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/login',
-            (route) => false,
-          );
-        }
-      }
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'requires-recent-login') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'This action requires recent authentication. Please log out, log back in, and try again.',
-              ),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.message ?? 'An error occurred.')),
-          );
-        }
+      await AuthService.deleteAccount();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your account has been permanently deleted.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       }
     } catch (e) {
       if (mounted) {
@@ -286,7 +258,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildSettingTile(
                   Icons.person_outline_rounded,
                   'Logged in as',
-                  _auth.currentUser?.email ?? 'Not Logged In',
+                  AuthService.email ?? 'Not Logged In',
                   () {},
                 ),
                 _buildDivider(),

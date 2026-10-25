@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,9 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // الانتظار لمدة 3 ثوانٍ لعرض شعار التطبيق بشكل لائق
     Timer(const Duration(seconds: 3), () {
       // جلب حالة المستخدم الحالي من الفايربيس
-      User? user = FirebaseAuth.instance.currentUser;
-
-      if (user != null && user.emailVerified) {
+      if (AuthService.isLoggedIn) {
         // إذا كان مسجلاً ومؤكداً بريده، يذهب للرئيسية مباشرة
         Navigator.pushReplacementNamed(context, '/home');
       } else {
