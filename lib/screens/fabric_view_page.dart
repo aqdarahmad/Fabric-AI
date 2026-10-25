@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -30,6 +30,12 @@ class _FabricViewPageState extends State<FabricViewPage> {
     _loadHistory();
   }
 
+  Uint8List _bytesOf(dynamic v) {
+    if (v is Uint8List) return v;
+    if (v is List) return Uint8List.fromList(List<int>.from(v));
+    return Uint8List(0);
+  }
+
   Future<void> _loadHistory() async {
     List<dynamic> savedHistory = _myBox.get('scanHistory', defaultValue: []);
 
@@ -38,8 +44,7 @@ class _FabricViewPageState extends State<FabricViewPage> {
         final mapItem = Map<String, dynamic>.from(item as Map);
         return {
           'isDefective': mapItem['isDefective'],
-          'image': File(mapItem['imagePath']),
-          'imagePath': mapItem['imagePath'],
+          'image': _bytesOf(mapItem['imageBytes']),
           'defects': mapItem['defects'],
           'detailedDefects': mapItem['detailedDefects'] ?? [],
           'time': DateTime.parse(mapItem['time']),
@@ -85,7 +90,7 @@ class _FabricViewPageState extends State<FabricViewPage> {
     List<Map<String, dynamic>> historyToSave = allFabrics.map((item) {
       return {
         'isDefective': item['isDefective'],
-        'imagePath': item['imagePath'],
+        'imageBytes': item['image'] as Uint8List,
         'defects': item['defects'],
         'detailedDefects': item['detailedDefects'],
         'time': (item['time'] as DateTime).toIso8601String(),
@@ -104,7 +109,7 @@ class _FabricViewPageState extends State<FabricViewPage> {
     );
   }
 
-  void _showImageDialog(File imageFile) {
+  void _showImageDialog(Uint8List imageFile) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -116,7 +121,7 @@ class _FabricViewPageState extends State<FabricViewPage> {
           maxScale: 4,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.file(imageFile, fit: BoxFit.contain),
+            child: Image.memory(imageFile, fit: BoxFit.contain),
           ),
         ),
       ),
@@ -141,8 +146,7 @@ class _FabricViewPageState extends State<FabricViewPage> {
       'fabricBox',
     ).get('inspectorName', defaultValue: 'Unknown Inspector');
 
-    File imageFile = item['image'] as File;
-    final imageBytes = await imageFile.readAsBytes();
+    final Uint8List imageBytes = item['image'] as Uint8List;
     final pdfImage = pw.MemoryImage(imageBytes);
 
     String fabricName = item['fabricName'];
@@ -558,14 +562,14 @@ class _FabricViewPageState extends State<FabricViewPage> {
                                     children: [
                                       GestureDetector(
                                         onTap: () => _showImageDialog(
-                                          item['image'] as File,
+                                          item['image'] as Uint8List,
                                         ),
                                         child: ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
-                                          child: Image.file(
-                                            item['image'] as File,
+                                          child: Image.memory(
+                                            item['image'] as Uint8List,
                                             width: 80,
                                             height: 80,
                                             fit: BoxFit.cover,

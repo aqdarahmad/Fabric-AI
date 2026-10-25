@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:camera/camera.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import 'package:fabric_ai/screens/models/fabric_item.dart';
@@ -28,7 +27,7 @@ class ResultPage extends StatefulWidget {
 
 class _ResultPageState extends State<ResultPage> {
   bool isLoading = false;
-  File? _selectedImage;
+  Uint8List? _selectedImage;
   final ImagePicker _picker = ImagePicker();
 
   List predictionsList = [];
@@ -139,7 +138,7 @@ class _ResultPageState extends State<ResultPage> {
           if (_cameraController!.value.isTakingPicture) return;
 
           final XFile file = await _cameraController!.takePicture();
-          final bytes = await File(file.path).readAsBytes();
+          final bytes = await file.readAsBytes();
           final base64Image = base64Encode(bytes);
 
           final result = await FabricApiService.runDefectDetection(
@@ -197,18 +196,11 @@ class _ResultPageState extends State<ResultPage> {
               .get(Uri.parse(imageUrl))
               .timeout(const Duration(seconds: 15));
           if (imgResponse.statusCode == 200) {
-            final tempDir = await getTemporaryDirectory();
-            final file = File(
-              '${tempDir.path}/pi_captured_fabric_${DateTime.now().millisecondsSinceEpoch}.jpg',
-            );
-            await file.writeAsBytes(imgResponse.bodyBytes);
-
             setState(() {
-              _selectedImage = file;
+              _selectedImage = imgResponse.bodyBytes;
             });
 
-            List<int> imageBytes = await _selectedImage!.readAsBytes();
-            String base64Image = base64Encode(imageBytes);
+            String base64Image = base64Encode(imgResponse.bodyBytes);
 
             await _processFabricAnalysis(base64Image);
           } else {
@@ -379,37 +371,20 @@ class _ResultPageState extends State<ResultPage> {
                   _scanImage(ImageSource.gallery);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.videocam, color: Colors.green),
-                title: const Text('Raspberry Pi Camera (Hardware)'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _scanImageFromPi();
-                },
-              ),
+              if (!kIsWeb)
+                ListTile(
+                  leading: const Icon(Icons.videocam, color: Colors.green),
+                  title: const Text('Raspberry Pi Camera (Hardware)'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _scanImageFromPi();
+                  },
+                ),
             ],
           ),
         );
       },
     );
-  }
-
-  Future<File?> _cropImage(String imagePath) async {
-    CroppedFile? croppedFile = await ImageCropper().cropImage(
-      sourcePath: imagePath,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Fabric',
-          toolbarColor: const Color(0xFFE91E63),
-          toolbarWidgetColor: Colors.white,
-          initAspectRatio: CropAspectRatioPreset.original,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(title: 'Crop Fabric'),
-      ],
-    );
-    if (croppedFile != null) return File(croppedFile.path);
-    return null;
   }
 
   Future<void> _scanImage(ImageSource sourceOption) async {
@@ -422,11 +397,10 @@ class _ResultPageState extends State<ResultPage> {
       );
       if (pickedFile == null) return;
 
-      File? croppedImage = await _cropImage(pickedFile.path);
-      if (croppedImage == null) return;
+      final Uint8List pickedBytes = await pickedFile.readAsBytes();
 
       setState(() {
-        _selectedImage = croppedImage;
+        _selectedImage = pickedBytes;
         isLoading = true;
         fabricItems.clear();
         predictionsList.clear();
@@ -441,8 +415,7 @@ class _ResultPageState extends State<ResultPage> {
         _authenticityIndicators.clear();
       });
 
-      List<int> imageBytes = await _selectedImage!.readAsBytes();
-      String base64Image = base64Encode(imageBytes);
+      String base64Image = base64Encode(pickedBytes);
 
       await _processFabricAnalysis(base64Image);
     } catch (e) {
@@ -545,15 +518,11 @@ class _ResultPageState extends State<ResultPage> {
 
   Future<void> _submitMistake(String note) async {
     try {
-      final appDir = await getApplicationDocumentsDirectory();
-      final fileName = "flagged_${DateTime.now().millisecondsSinceEpoch}.jpg";
-      final savedImage = await _selectedImage!.copy('${appDir.path}/$fileName');
-
       final box = Hive.box('fabricBox');
       List flaggedList = box.get('flaggedMistakes', defaultValue: []);
 
       flaggedList.add({
-        'imagePath': savedImage.path,
+        'imageBytes': _selectedImage,
         'aiVerdict': finalResultToReturn?['defects'] ?? "Unknown",
         'userCorrection': note.isNotEmpty ? note : 'User flagged an error',
         'timestamp': DateTime.now().toString(),
@@ -1010,7 +979,7 @@ class _ResultPageState extends State<ResultPage> {
                       ? _buildLiveCameraWithBoxes()
                       : FabricImagePreview(
                           // التعديل هنا: إضافة الـ Key لإجبار الويدجت على عرض الصورة الجديدة دائماً عند تغير مسارها
-                          key: ValueKey(_selectedImage?.path ?? 'no_image'),
+                          key: ValueKey(_selectedImage?.length ?? 'no_image'),
                           selectedImage: _selectedImage,
                           showBoundingBoxes: _showBoundingBoxes,
                           predictionsList: predictionsList,

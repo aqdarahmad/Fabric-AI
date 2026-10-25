@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,7 +16,22 @@ import 'home.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
+  if (kIsWeb) {
+    // Firebase web config is passed at build time with --dart-define
+    // (see render-build.sh). These are public identifiers, not secrets.
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: String.fromEnvironment('FIREBASE_API_KEY'),
+        appId: String.fromEnvironment('FIREBASE_APP_ID'),
+        messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID'),
+        projectId: String.fromEnvironment('FIREBASE_PROJECT_ID'),
+        authDomain: String.fromEnvironment('FIREBASE_AUTH_DOMAIN'),
+        storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET'),
+      ),
+    );
+  } else {
+    await Firebase.initializeApp();
+  }
 
   await Hive.initFlutter();
   await Hive.openBox('fabricBox');

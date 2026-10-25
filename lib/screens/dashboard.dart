@@ -1,9 +1,11 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:share_plus/share_plus.dart'; // 🟢 حزمة المشاركة الجديدة
 
 import 'result_page.dart';
@@ -64,7 +66,7 @@ class _FabricDashboardState extends State<FabricDashboard> {
 
         return {
           'isDefective': isDef,
-          'image': File(mapItem['imagePath']),
+          'image': _bytesOf(mapItem['imageBytes']),
           'defects': mapItem['defects'],
           'detailedDefects': detailed,
           'time': DateTime.parse(mapItem['time']),
@@ -89,7 +91,7 @@ class _FabricDashboardState extends State<FabricDashboard> {
     List<Map<String, dynamic>> historyToSave = scanHistory.map((item) {
       return {
         'isDefective': item['isDefective'],
-        'imagePath': (item['image'] as File).path,
+        'imageBytes': item['image'] as Uint8List,
         'defects': item['defects'],
         'detailedDefects': item['detailedDefects'],
         'time': (item['time'] as DateTime).toIso8601String(),
@@ -104,10 +106,10 @@ class _FabricDashboardState extends State<FabricDashboard> {
     await _myBox.put('defective', defective);
   }
 
-  Future<File> _saveImagePermanently(File tempImage) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final fileName = 'fabric_scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    return await tempImage.copy('${directory.path}/$fileName');
+  Uint8List _bytesOf(dynamic v) {
+    if (v is Uint8List) return v;
+    if (v is List) return Uint8List.fromList(List<int>.from(v));
+    return Uint8List(0);
   }
 
   int get qualityRate {
@@ -147,15 +149,21 @@ class _FabricDashboardState extends State<FabricDashboard> {
       }
 
       // 3. حفظ الملف مؤقتاً في الهاتف
-      final directory = await getApplicationDocumentsDirectory();
-      final path = "${directory.path}/Fabric_Inspection_Report.csv";
-      final file = File(path);
-      await file.writeAsString(csvData);
+      final reportFile = XFile.fromData(
+        Uint8List.fromList(utf8.encode('\uFEFF$csvData')),
+        mimeType: 'text/csv',
+        name: 'Fabric_Inspection_Report.csv',
+      );
 
-      // 4. فتح نافذة المشاركة (لمشاركته عبر واتساب، ايميل، الخ)
-      await Share.shareXFiles([
-        XFile(path),
-      ], text: 'Fabric AI Inspection - Official Report');
+      if (kIsWeb) {
+        // على الويب: تنزيل الملف مباشرة
+        await reportFile.saveTo('Fabric_Inspection_Report.csv');
+      } else {
+        // على الموبايل: نافذة المشاركة
+        await Share.shareXFiles([
+          reportFile,
+        ], text: 'Fabric AI Inspection - Official Report');
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -215,9 +223,7 @@ class _FabricDashboardState extends State<FabricDashboard> {
                   MaterialPageRoute(builder: (context) => const ResultPage()),
                 );
                 if (result != null && result is Map) {
-                  File savedImage = await _saveImagePermanently(
-                    result['image'],
-                  );
+                  final Uint8List savedImage = result['image'] as Uint8List;
                   setState(() {
                     scanHistory.insert(0, {
                       'isDefective': result['isDefective'],
@@ -502,8 +508,8 @@ class _FabricDashboardState extends State<FabricDashboard> {
                   child: ListTile(
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        item['image'] as File,
+                      child: Image.memory(
+                        item['image'] as Uint8List,
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
@@ -129,7 +129,12 @@ class _RetrainingPoolPageState extends State<RetrainingPoolPage> {
               itemCount: _flaggedMistakes.length,
               itemBuilder: (context, index) {
                 var item = _flaggedMistakes[index];
-                File imgFile = File(item['imagePath'] ?? "");
+                final dynamic rawImg = item['imageBytes'];
+                final Uint8List? imgBytes = rawImg is Uint8List
+                    ? rawImg
+                    : (rawImg is List
+                          ? Uint8List.fromList(List<int>.from(rawImg))
+                          : null);
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -148,9 +153,9 @@ class _RetrainingPoolPageState extends State<RetrainingPoolPage> {
                             // عرض مصغر للصورة المخطوء فيها
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: imgFile.existsSync()
-                                  ? Image.file(
-                                      imgFile,
+                              child: (imgBytes != null && imgBytes.isNotEmpty)
+                                  ? Image.memory(
+                                      imgBytes,
                                       width: 80,
                                       height: 80,
                                       fit: BoxFit.cover,

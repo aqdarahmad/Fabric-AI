@@ -1,9 +1,9 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../result_page.dart'; // الوصول إلى ScanMode
 
 class FabricImagePreview extends StatelessWidget {
-  final File? selectedImage;
+  final Uint8List? selectedImage;
   final bool showBoundingBoxes;
   final List predictionsList;
   final double? imgWidth;
@@ -34,7 +34,7 @@ class FabricImagePreview extends StatelessWidget {
         width: double.infinity,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.file(selectedImage!, fit: BoxFit.contain),
+          child: Image.memory(selectedImage!, fit: BoxFit.contain),
         ),
       );
     }
@@ -119,7 +119,7 @@ class FabricImagePreview extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.file(
+                  child: Image.memory(
                     selectedImage!,
                     width: displayWidth,
                     height: displayHeight,
