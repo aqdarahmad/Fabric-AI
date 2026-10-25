@@ -67,33 +67,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // 🟢 دالة استعادة كلمة المرور وإرسال بريد الكتروني للمستخدم
-  void _forgotPassword() async {
-    String email = _emailController.text.trim();
 
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email address first')),
-      );
-      return;
-    }
-
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset link sent to your email.'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
+  void _forgotPassword() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Password reset is not available yet. Please contact support.',
+        ),
+      ),
+    );
   }
+
+  
 
   @override
   Widget build(BuildContext context) {
