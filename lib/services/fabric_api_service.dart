@@ -4,8 +4,8 @@ import '../screens/models/fabric_item.dart'; // مسار الاستيراد لل
 
 class FabricApiService {
   // مفتاح الـ API الفعلي الخاص بك لـ OpenAI ليعمل فحص نوع القماش وفحص الأصالة والجودة
-  static const String _openaiApiKey =
-      "";
+   static String get _openaiApiKey =>
+      dotenv.env['OPENAI_API_KEY'] ?? '';
 
   // 1. وظيفة فحص العيوب (Roboflow) - بقيت كما هي دون تغيير لضمان عملها المستقر
   static Future<Map<String, dynamic>> runDefectDetection({
