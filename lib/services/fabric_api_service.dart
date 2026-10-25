@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../screens/models/fabric_item.dart'; // مسار الاستيراد للموديل
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 class FabricApiService {
   // مفتاح الـ API الفعلي الخاص بك لـ OpenAI ليعمل فحص نوع القماش وفحص الأصالة والجودة
    static String get _openaiApiKey =>
